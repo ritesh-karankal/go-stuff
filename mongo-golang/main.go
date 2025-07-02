@@ -1,26 +1,35 @@
 package main
 
 import (
-	"github.com/julienschmidt/httprouter"
-	"gopkg.in/mgo.v2"
+	"context"
+	"log"
 	"net/http"
+	"time"
 
+	"github.com/julienschmidt/httprouter"
 	"github.com/ritesh-karankal/mongo-golang/controllers"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func main() {
+	client := getClient()
+
 	r := httprouter.New()
-	uc := controllers.NewUserController(getSession())
-	r.GET("/user/id", uc.GetUser)
+	uc := controllers.NewUserController(client)
+	r.GET("/user/:id", uc.GetUser)
 	r.POST("/user", uc.CreateUser)
-	r.DELETE("/user/id", uc.DeleteUser)
-	http.ListenAndServe("localhost:9000", r)
+	r.DELETE("/user/:id", uc.DeleteUser)
+	log.Fatal(http.ListenAndServe("localhost:9000", r))
 }
 
-func getSession() *mgo.Session {
-	s, err := mgo.Dial("mongodb://localhost:27017")
+func getClient() *mongo.Client {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
-		panic(err)
+		log.Fatal("MongoDB connection failed:", err)
 	}
-	return s
+	return client
 }
